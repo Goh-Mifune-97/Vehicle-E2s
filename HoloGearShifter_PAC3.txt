@@ -1,0 +1,184 @@
+@name HoloGearShifter_PAC3
+#- Entity input directives
+@inputs Gear
+#- Spawning code directives
+@persist [HT CT]:table [SpawnStatus CoreStatus]:string [HN CN I SpawnCounter]
+@persist [ScaleFactor ToggleColMat ToggleShading] Indices
+@persist [DefaultColor DefaultScale]:vector
+#- System persist directives
+@persist [A]
+
+@persist GearMax
+
+if (first() | dupefinished()) {
+    
+    Chip = entity(), Base = entity()
+
+    ScaleFactor = 1 #- Scale multiplier.
+    ToggleColMat = 1 #- Toggle for materials and colours.
+    ToggleShading = 0 #- Toggle for shading.
+    Indices = 1
+    HN = 0
+    CN = 0
+    I = 0
+    
+
+    
+    # # # PARENT HOLO - DO NOT TOUCH THIS ONE # # #
+    HN++, HT[HN,table] = table(I, Base, Base, 0, vec(0, -0, 0), ang(0, 0, 0), vec(1,1,1), "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl", "", vec4(0,0,0,0), 0)
+
+    # # # YOUR HOLOGRAM DATA GOES HERE # # #
+    I++, HN++, HT[HN,table] = table(I, Base, A, 0, vec(-0.002, 0.001, -14.7148), ang(-0.9096, 90.023, -1.4508), vec(0.3, 0.3, 0.33), "models/props_c17/gravestone_cross001b.mdl", "sprops/textures/sprops_rubber", vec4(255, 255, 255, 255), 0)
+	    CN++, CT[CN,table] = table(I, 1, vec(0, 0, 14.5928), vec(0, 0, 1))
+
+    I++, HN++, HT[HN,table] = table(I, Base, A, 0, vec(0, 0, 4.6475), ang(0, 0, 0), vec(0.2, 0.2, 0.2), "models/holograms/hq_torus.mdl", "models/debug/debugwhite", vec4(63, 63, 63, 255), 0)
+	
+    I++, HN++, HT[HN,table] = table(I, Base, A, 0, vec(0, 0, 8.272), ang(0, 0, 0), vec(0.08, 0.08, 0.288), "models/holograms/hq_rcylinder_thin.mdl", "models/debug/debugwhite", vec4(63, 63, 63, 255), 0)
+	
+    I++, HN++, HT[HN,table] = table(I, Base, A, 0, vec(0, 0, 10.5), ang(0, 180, 0), vec(0.15, 0.15, 0.15), "models/holograms/hq_sphere.mdl", "models/debug/debugwhite", vec4(63, 63, 63, 255), 0)
+	
+    I++, HN++, HT[HN,table] = table(I, Base, A, 0, vec(0, 0, 4.6338), ang(0, 0, 0), vec(0.15, 0.15, 0.15), "models/props_phx/games/chess/black_pawn.mdl", "models/debug/debugwhite", vec4(63, 63, 63, 255), 0)
+	    CN++, CT[CN,table] = table(I, 1, vec(0, 0, 2.1123), vec(0, 0, -1))
+
+    I++, HN++, HT[HN,table] = table(I, Base, A, 0, vec(0, 0, 10.6), ang(0, 180, 0), vec(0.15, 0.15, 0.15), "models/holograms/icosphere3.mdl", "models/debug/debugwhite", vec4(63, 63, 63, 255), 0)
+	    CN++, CT[CN,table] = table(I, 1, vec(0.3022, 0.8779, 0.1445), vec(0, 0, 1))
+   
+   # # # # # # # # # HOLOGRAM DATA END # # # # # # # # #
+
+	   #- Create a hologram from data array
+    function table:holo() {
+        local Index = This[1, number] * Indices
+        if (This[2,entity]:isValid()) { Entity = This[2,entity] } else { Entity = holoEntity(This[2,number]) }
+        if (This[3,entity]:isValid()) { Parent = This[3,entity] } else { Parent = holoEntity(This[3,number]) }
+        local Rescale = (This[7, vector] / (This[4, number] ? 12 : 1)) * ScaleFactor
+
+        holoCreate(Index, Entity:toWorld(This[5, vector] * ScaleFactor), Rescale, Entity:toWorld(This[6, angle]), DefaultColor, This[8, string] ?: "cube")
+        holoParent(Index, Parent)
+
+        if (ToggleColMat) {
+            holoMaterial(Index, This[9, string])
+            holoColor(Index, This[10, vector4])
+            holoSkin(Index, This[11, number])
+        }
+
+        if (ToggleShading) { holoDisableShading(Index, 1) }
+    }
+
+    #- Clip a hologram from data array
+    function table:clip() {
+        holoClipEnabled(This[1, number] * Indices, This[2, number], 1)
+        holoClip(This[1, number] * Indices, This[2, number], This[3, vector] * ScaleFactor, This[4, vector], 0)
+    }
+
+    #- Load the contraption
+    function loadContraption() {
+        switch (SpawnStatus) {
+            case "InitSpawn",
+                if (clk("Start")) {
+                    SpawnStatus = "LoadHolograms"
+                }
+                Chip:soundPlay("Blip", 0, "@^garrysmod/content_downloaded.wav", 0.212)
+            break
+
+            case "LoadHolograms",
+                while (perf() & holoCanCreate() &  SpawnCounter < HN) {
+                    SpawnCounter++
+                    HT[SpawnCounter, table]:holo()
+
+                    if (SpawnCounter >= HN) {
+                        SpawnStatus = CN > 0 ? "LoadClips" : "PrintStatus"
+                        SpawnCounter = 0
+                        break
+                    }
+                }
+            break
+
+            case "LoadClips",
+                while (perf() & SpawnCounter < CN) {
+                    SpawnCounter++
+                    CT[SpawnCounter, table]:clip()
+
+                    if (SpawnCounter >= CN) {
+                        SpawnStatus = "PrintStatus"
+                        SpawnCounter = 0
+                        break
+                    }
+                }
+            break
+
+            case "PrintStatus",
+                printColor( vec(222,37,188), "PAC to Holo: ", vec(255,255,255), "Loaded " + HN + " holograms and " + CN + " clips." )
+
+                HT:clear()
+                CT:clear()
+
+                CoreStatus = "InitPostSpawn"
+                SpawnStatus = ""
+            break
+        }
+    }
+
+    CoreStatus = "InitSpawn"
+    SpawnStatus = "InitSpawn"
+
+    DefaultColor = vec(255, 255, 255)
+
+    runOnTick(1)
+    timer("Start", 500)
+}
+
+#- Credit to Shadowscion for the initial base hologram spawning code.
+
+elseif (CoreStatus == "InitSpawn") {
+    loadContraption()
+}
+elseif (CoreStatus == "InitPostSpawn") {
+    #- This is your "if (first())" section of the code.
+    
+    holoColor(0,vec(0))
+    holoAlpha(0,0)
+
+    CoreStatus = "RunThisCode"
+}
+elseif (CoreStatus == "RunThisCode") {
+    #- This is your "interval()" ran section of the code.
+
+GearMax = 6
+
+   if (Gear == 0)
+   {
+holoAng(0, entity():toWorld(ang(0,90,0)) )    
+   }
+    
+   if (Gear == 1)
+   {
+holoAng(0, entity():toWorld(ang(15,85,343)) )
+   }
+
+   if (Gear == 2)
+   {
+holoAng(0, entity():toWorld(ang(344,94,343)) )
+   }
+
+   if (Gear == 3)
+   {
+holoAng(0, entity():toWorld(ang(15,90,0)) )
+   }
+
+   if (Gear == 4)
+   {
+holoAng(0, entity():toWorld(ang(344,90,0)) )
+   }
+
+   if (Gear == 5)
+   {
+holoAng(0, entity():toWorld(ang(15,90,16)) )
+   }
+
+   if (Gear == 6)
+   {
+holoAng(0, entity():toWorld(ang(344,84,16)) )
+   }
+ 
+runOnTick(0)
+}

@@ -1,0 +1,16 @@
+@name 5th Wheel
+@inputs SteeringAngle
+
+
+interval(33)
+
+if (first() | dupefinished()){
+
+    WheelModel = "models/sprops/trans/stwheels/stwheel_4.mdl"
+    holoCreate(1)
+    holoParent(1,entity())
+    holoModel(1,WheelModel)
+
+}
+
+holoAng(1,entity():toWorld(ang(-90,5.6*SteeringAngle+180,0)))

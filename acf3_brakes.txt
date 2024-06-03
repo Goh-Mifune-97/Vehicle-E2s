@@ -1,0 +1,15 @@
+@name ACF3 Brakes
+@inputs Space
+@outputs BrakesFront BrakesRear
+
+if(Space){
+    
+    BrakesFront = 15
+    BrakesRear = 30
+    
+}else{
+    
+    BrakesFront = 0
+    BrakesRear = 0
+    
+}

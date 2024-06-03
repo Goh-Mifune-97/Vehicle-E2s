@@ -1,0 +1,14 @@
+@name Throttle
+@inputs W
+@outputs Throttle
+
+if(W){
+    
+    Throttle = 100
+    
+}else{
+    
+    Throttle = 0
+    
+}
+

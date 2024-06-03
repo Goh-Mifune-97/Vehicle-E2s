@@ -1,0 +1,97 @@
+@name Car Steering v2.3.1
+@inputs A D Active Base:entity
+@outputs SteeringAngle
+@persist E:entity [HoloLastPos LastHoloLastPos]:vector MaxAngle SteeringRate SteeringSmoothRate CasterAngle LastRun
+@persist SlipCounterForce GyroCounterForce CounterMax HoloLastYaw
+@persist AntiWobbleAngle AntiWobbleMul
+@trigger Base
+@model models/sprops/rectangles_thin/size_2/rect_12x12x1_5.mdl
+
+####################[READ ME]####################
+#[
+SETUP:
+    1. Wire all inputs.
+    2. Edit HoloPos until the directional indicator is roughly between the two front wheels.
+    3. Edit HoloAng until the green arrow faces forward, and the blue arrow faces up.
+    4. Do your ballsockets as normal.
+
+Use this code for whatever you want, share as you wish, modify as you wish, HOWEVER,
+if you make any modifications to the code, or use any fragments of code for your own purposes, please do
+be willing to share.
+
+]##            Active  Inactive
+interval(Active ? 44 : 250)
+
+if(first() | dupefinished()) {
+    MaxAngle = 50 #Steering lock angle, in degrees.
+    SteeringRate = 110 #Steering rate, in degrees per second.
+    CasterAngle = 5 #Caster angle, in degrees.
+    SlipCounterForce = 0.5 #A multiplier for countering based on the car's slip velocity. Low values (around 0.25 to 0.75) work best. 0 to disable.
+    GyroCounterForce = 1 #A multiplier for countering based on the car's angular velocity. 0 to disable.
+    CounterMax = 200 #Max amount of countersteering force to apply.
+                    #If this is LOWER than your steering rate, you will be able to overpower the E2's countersteering abilities.
+                    #If this is HIGHER than your steering rate, the E2 will be able to overpower your inputs at high slip/rotation amounts.
+                    #If this value is very high, the steering can snap around quickly during rapid directional changes.
+
+    ShowHolo = 1 #Set to 0 to hide the directional indicator.
+    HoloPos = vec(57, 0, 3) #This should be roughly centered between your front wheels.
+    HoloAng = ang(0, 0, 0) #Green arrow forwards, blue arrow up.
+
+    #If your car is wobbling left and right, increase the value below, 1 to 4 degrees works best.
+    AntiWobbleAngle = 2 #Below this steering angle, antiwobble based on the multiplier below will be active - 0 to disable antiwobble.
+    AntiWobbleMul = 0.25 #Decrease this value to increase the aggressiveness of the antiwobble at low steering angles - value can be between 0 and 1.
+                        #0 instantly locks the steering straight when the angle is less than AntiWobbleAngle, 1 will make it do nothing.
+                        #With antiwobble enabled, you may have to tap left/right in order to help it begin countering in some situations.
+
+    E = entity()
+    LastRun = systime()
+
+    holoCreate(1, Base:toWorld(HoloPos), vec(1), Base:toWorld(HoloAng), vec4(255 * ShowHolo), "models/sprops/misc/origin.mdl")
+    holoParent(1, Base)
+
+    HoloLastPos = holoEntity(1):pos()
+    LastHoloLastPos = HoloLastPos
+    HoloLastYaw = holoEntity(1):angles():yaw()
+
+    timer("freeze", 250)
+}
+
+if(clk()) {
+    local DT = systime() - LastRun #Multiplying everything by the delta time keeps forces the same even with different intervals.
+    HoloLastPos = holoEntity(1):pos()
+    local Delta = HoloLastPos - LastHoloLastPos
+    LastHoloLastPos = HoloLastPos
+    local VelL = holoEntity(1):toLocal(holoEntity(1):pos() + Delta / DT)
+
+    #Rotate the car's local velocity vector by the current steering angle and use the Y component of that as our slip amount
+    #https://i.imgur.com/oLGteJJ.png
+    local Slip = VelL:rotateAroundAxis(vec(0, 0, 1), -SteeringAngle):y() * SlipCounterForce
+
+    #Yaw rate ("Gyro") based damping
+    local YawDamping = HoloLastYaw - holoEntity(1):angles():yaw()
+    YawDamping += (YawDamping < -180 ) * 360 - (YawDamping > 180) * 360 #Deals with the changeover from 360-0/0-360
+    YawDamping *= sign(VelL:x())
+    YawDamping *= GyroCounterForce
+    YawDamping /= DT
+    HoloLastYaw = holoEntity(1):angles():yaw()
+
+    #Turn += clamp((A - D) * SteeringRate - Turn, -SteeringSmoothRate, SteeringSmoothRate)
+
+    local Turn = (A - D) * SteeringRate
+    SteeringAngle = clamp(SteeringAngle + Turn * DT + clamp(Slip + YawDamping, -CounterMax, CounterMax) * DT, -MaxAngle, MaxAngle)
+    SteeringAngle *= abs(SteeringAngle) < AntiWobbleAngle & (!A & !D) ? AntiWobbleMul : 1 #AntiWobble courtesy of Chaz
+    SteeringAngle = Active ? SteeringAngle : 0
+
+    E:setAng(holoEntity(1):toWorld(ang(0, SteeringAngle, -CasterAngle * (SteeringAngle / MaxAngle))))
+
+    LastRun = systime()
+}
+
+if(clk("freeze")) {
+    timer("freeze", 250)
+    E:propFreeze(!E:isPlayerHolding())
+}
+
+if(~Base & Base:isValid()) {
+    reset()
+}

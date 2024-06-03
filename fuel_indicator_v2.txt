@@ -1,0 +1,25 @@
+@name Fuel Indicator V2
+@inputs Fuel Capacity
+@outputs Color:vector
+
+if(Fuel > Capacity*0.75){
+    
+    Color = vec(0,255,0)
+    
+}elseif(Fuel > Capacity*0.50){
+    
+    Color = vec(255,255,0)
+    
+}elseif(Fuel > Capacity*0.25){
+    
+    Color = vec(255,93,0)
+    
+}elseif(Fuel > 0){
+    
+    Color = vec(255,0,0)
+    
+}else{
+    
+    Color = vec(36,36,36)
+    
+}
